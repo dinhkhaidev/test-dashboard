@@ -16,18 +16,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Replace placeholders
+      - name: Replace placeholders with envsubst
         env:
           SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.VITE_SUPABASE_KEY }}
         run: |
-          sed -i "s|__SUPABASE_URL__|'\${SUPABASE_URL}'|g" index.html
-          sed -i "s|__SUPABASE_KEY__|'\${SUPABASE_KEY}'|g" index.html
+          export SUPABASE_URL SUPABASE_KEY
+          envsubst < index.html > index.html.tmp && mv index.html.tmp index.html
 
       - name: Verify replacement
         run: |
-          grep "__SUPABASE_URL__" index.html && echo "URL NOT REPLACED" || echo "URL OK"
-          grep "__SUPABASE_KEY__" index.html && echo "KEY NOT REPLACED" || echo "KEY OK"
+          grep "__SUPABASE" index.html && echo "NOT ALL REPLACED" || echo "ALL REPLACED OK"
 
       - uses: actions/configure-pages@v5
 
