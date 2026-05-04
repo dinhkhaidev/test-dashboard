@@ -401,6 +401,33 @@
 window.__SUPABASE_URL__ = '${SUPABASE_URL}';
 window.__SUPABASE_KEY__ = '${SUPABASE_KEY}';
 </script>
+
+<!-- Auth Modal -->
+<div id="authModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); backdrop-filter:blur(8px); z-index:200; align-items:center; justify-content:center;">
+  <div style="background:var(--bg-card); border-radius:var(--radius-xl); padding:32px; width:min(420px,95vw); box-shadow:var(--shadow-lg);">
+    <div style="text-align:center; margin-bottom:24px;">
+      <div style="font-size:32px; margin-bottom:8px;">👤</div>
+      <h2 id="authTitle" style="font-size:22px; font-weight:600;">Đăng nhập</h2>
+    </div>
+    <form id="authForm" style="display:flex; flex-direction:column; gap:14px;">
+      <div class="field">
+        <label for="authEmail">Email</label>
+        <input class="input" type="email" id="authEmail" placeholder="email@example.com" required />
+      </div>
+      <div class="field">
+        <label for="authPassword">Mật khẩu</label>
+        <input class="input" type="password" id="authPassword" placeholder="••••••••" required minlength="6" />
+      </div>
+      <div id="authError" style="color:var(--danger); font-size:13px; display:none;"></div>
+      <button type="submit" class="btn" id="authSubmit" style="width:100%;">Đăng nhập</button>
+    </form>
+    <div style="text-align:center; margin-top:16px;">
+      <span id="authToggle" style="color:var(--accent); cursor:pointer; font-size:14px;">Chưa có tài khoản? Đăng ký</span>
+    </div>
+    <button id="authClose" style="position:absolute; top:16px; right:16px; background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
+  </div>
+</div>
+
   <div class="app">
 
     <!-- Top bar -->
@@ -409,11 +436,14 @@ window.__SUPABASE_KEY__ = '${SUPABASE_KEY}';
         <div class="brand-logo">T</div>
         <div>
           <div class="brand-title">Task Dashboard</div>
-          <div class="brand-sub">Supabase · IndexedDB · Google Calendar</div>
+          <div class="brand-sub" id="userEmailSub">Supabase · IndexedDB · Google Calendar</div>
         </div>
       </div>
       <div class="topbar-right">
         <div class="chip-date" id="todayChip">—</div>
+        <span id="userBadge" style="display:none; font-size:13px; color:var(--text-secondary); padding:8px 12px; background:var(--bg-elevated); border-radius:999px;"></span>
+        <button class="btn btn-sm" id="authBtn">Đăng nhập</button>
+        <button class="btn btn-sm" id="logoutBtn" style="display:none;">Đăng xuất</button>
         <button class="btn btn-ghost btn-sm" id="exportBtn">⤓ Export JSON</button>
         <button class="btn btn-ghost btn-sm" id="importBtn">⤒ Import</button>
         <button class="btn btn-sm" id="openSettings">⚙︎ Cài đặt</button>
@@ -657,6 +687,37 @@ function getSupabase() {
   return _sbClient;
 }
 
+// Auth helper
+const AUTH = {
+  async signUp(email, password) {
+    const sb = getSupabase();
+    if (!sb) return { error: 'Supabase not configured' };
+    const { data, error } = await sb.auth.signUp({ email, password });
+    return { data, error };
+  },
+  async signIn(email, password) {
+    const sb = getSupabase();
+    if (!sb) return { error: 'Supabase not configured' };
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    return { data, error };
+  },
+  async signOut() {
+    const sb = getSupabase();
+    if (!sb) return;
+    await sb.auth.signOut();
+  },
+  getSession() {
+    const sb = getSupabase();
+    if (!sb) return null;
+    return sb.auth.getSession();
+  },
+  onAuthStateChange(callback) {
+    const sb = getSupabase();
+    if (!sb) return null;
+    return sb.auth.onAuthStateChange(callback);
+  }
+};
+
 /* =========================================================================
    DATABASE — IndexedDB wrapper (local fallback)
    ========================================================================= */
@@ -694,8 +755,8 @@ const DB = (() => {
     init: open,
     all: async () => {
       const sb = getSupabase();
-      if (sb) {
-        const { data, error } = await sb.from('tasks').select('*');
+      if (sb && state.user) {
+        const { data, error } = await sb.from('tasks').select('*').eq('user_id', state.user.id);
         if (!error && data) return data;
       }
       return localAll();
@@ -703,10 +764,12 @@ const DB = (() => {
     put: async (t) => {
       const sb = getSupabase();
       if (sb) {
-        const { error } = await sb.from('tasks').upsert(t);
+        const taskWithUser = { ...t, user_id: state.user?.id || null };
+        const { error } = await sb.from('tasks').upsert(taskWithUser);
         if (!error) return;
       }
-      return localPut(t);
+      const taskWithUser = { ...t, user_id: null };
+      return localPut(taskWithUser);
     },
     del: async (id) => {
       const sb = getSupabase();
@@ -752,7 +815,8 @@ let state = {
   tasks: [],
   filter: 'today',
   selectedPriority: 'med',
-  charts: { c7: null, cs: null, cp: null }
+  charts: { c7: null, cs: null, cp: null },
+  user: null
 };
 
 /* =========================================================================
@@ -1286,10 +1350,22 @@ $('#wipeBtn').addEventListener('click', async () => {
     weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
   });
 
+  // Auth state listener
+  AUTH.onAuthStateChange((event, session) => {
+    state.user = session?.user || null;
+    updateAuthUI();
+    render();
+  });
+
+  // Check existing session
+  const { data: sessionData } = await AUTH.getSession();
+  state.user = sessionData?.session?.user || null;
+  updateAuthUI();
+
   await render();
 
-  // Seed demo if empty
-  if (state.tasks.length === 0) {
+  // Seed demo if empty and not logged in
+  if (state.tasks.length === 0 && !state.user) {
     $('#seedBtn').click();
   }
 
@@ -1312,36 +1388,117 @@ $('#wipeBtn').addEventListener('click', async () => {
   // Re-render charts on theme change
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderCharts);
 })();
+
+/* =========================================================================
+   AUTH UI
+   ========================================================================= */
+function updateAuthUI() {
+  const authBtn = $('#authBtn');
+  const logoutBtn = $('#logoutBtn');
+  const userBadge = $('#userBadge');
+  const userEmailSub = $('#userEmailSub');
+
+  if (state.user) {
+    authBtn.style.display = 'none';
+    logoutBtn.style.display = 'inline-flex';
+    userBadge.style.display = 'inline-flex';
+    userBadge.textContent = state.user.email;
+    userEmailSub.textContent = state.user.email;
+  } else {
+    authBtn.style.display = 'inline-flex';
+    logoutBtn.style.display = 'none';
+    userBadge.style.display = 'none';
+    userEmailSub.textContent = 'Supabase · IndexedDB · Google Calendar';
+  }
+}
+
+// Auth Modal
+const authModal = $('#authModal');
+const authForm = $('#authForm');
+const authTitle = $('#authTitle');
+const authToggle = $('#authToggle');
+const authError = $('#authError');
+const authSubmit = $('#authSubmit');
+let isSignUp = false;
+
+$('#authBtn').addEventListener('click', () => {
+  isSignUp = false;
+  authTitle.textContent = 'Đăng nhập';
+  authSubmit.textContent = 'Đăng nhập';
+  authToggle.textContent = 'Chưa có tài khoản? Đăng ký';
+  authError.style.display = 'none';
+  authModal.style.display = 'flex';
+});
+
+$('#authClose').addEventListener('click', () => {
+  authModal.style.display = 'none';
+});
+
+authToggle.addEventListener('click', () => {
+  isSignUp = !isSignUp;
+  authTitle.textContent = isSignUp ? 'Đăng ký' : 'Đăng nhập';
+  authSubmit.textContent = isSignUp ? 'Đăng ký' : 'Đăng nhập';
+  authToggle.textContent = isSignUp ? 'Đã có tài khoản? Đăng nhập' : 'Chưa có tài khoản? Đăng ký';
+  authError.style.display = 'none';
+});
+
+authForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = $('#authEmail').value;
+  const password = $('#authPassword').value;
+  authError.style.display = 'none';
+
+  let result;
+  if (isSignUp) {
+    result = await AUTH.signUp(email, password);
+  } else {
+    result = await AUTH.signIn(email, password);
+  }
+
+  if (result.error) {
+    authError.textContent = result.error.message;
+    authError.style.display = 'block';
+  } else {
+    authModal.style.display = 'none';
+    authForm.reset();
+  }
+});
+
+$('#logoutBtn').addEventListener('click', async () => {
+  await AUTH.signOut();
+  state.user = null;
+  updateAuthUI();
+  render();
+});
 </script>
 <!--
 ====================================================================
-  SUPABASE TABLE SETUP (nếu chưa tạo)
+  SUPABASE SETUP
 ====================================================================
-Chạy SQL này trong Supabase SQL Editor:
 
+-- Tạo table tasks (chạy 1 lần)
 create table tasks (
   id text primary key,
   title text not null,
-  desc text default '',
+  description text default '',
   date text not null,
+  deadline text,
   category text default '',
   priority text default 'med',
   status text default 'todo',
-  created_at bigint
+  created_at bigint,
+  user_id uuid references auth.users
 );
 
--- Bật RLS (Row Level Security)
 alter table tasks enable row level security;
 
--- Policy cho phép tất cả operations (thay đổi theo nhu cầu)
-create policy "allow_all" on tasks for all using (true) with check (true);
+-- Policy: user chỉ thấy task của mình
+create policy "users_own_tasks" on tasks
+  for all using (auth.uid() = user_id);
 
 ====================================================================
   GOOGLE CALENDAR 2-way sync (tùy chọn)
 ====================================================================
-- Đổi scope thành https://www.googleapis.com/auth/calendar
-- Khi addTask: gapi.client.calendar.events.insert({calendarId:'primary', resource:{summary,...}})
-- Lưu eventId vào task để update/delete sau.
 -->
 </body>
 </html>
