@@ -16,9 +16,20 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - run: |
+      - name: Debug secrets
+        run: |
+          echo "URL length: ${{ secrets.VITE_SUPABASE_URL }}"
+          echo "KEY prefix: ${{ secrets.VITE_SUPABASE_KEY }}"
+
+      - name: Replace placeholders
+        run: |
           sed -i 's|__SUPABASE_URL__|${{ secrets.VITE_SUPABASE_URL }}|g' index.html
           sed -i 's|__SUPABASE_KEY__|${{ secrets.VITE_SUPABASE_KEY }}|g' index.html
+
+      - name: Verify replacement
+        run: |
+          grep -o "window.__SUPABASE_URL__ = '.*'" index.html || echo "NOT REPLACED"
+          grep -o "window.__SUPABASE_KEY__ = '.*'" index.html || echo "KEY NOT REPLACED"
 
       - uses: actions/configure-pages@v5
 
