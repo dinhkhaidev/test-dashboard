@@ -13,23 +13,32 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: Debug secrets
+      - name: Set env vars
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.VITE_SUPABASE_KEY }}
         run: |
-          echo "URL length: ${{ secrets.VITE_SUPABASE_URL }}"
-          echo "KEY prefix: ${{ secrets.VITE_SUPABASE_KEY }}"
+          echo "SUPABASE_URL_LEN=${#SUPABASE_URL}"
+          echo "SUPABASE_KEY_LEN=${#SUPABASE_KEY}"
 
       - name: Replace placeholders
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.VITE_SUPABASE_KEY }}
         run: |
-          sed -i "s|__SUPABASE_URL__|${{ secrets.VITE_SUPABASE_URL }}|g" index.html
-          sed -i "s|__SUPABASE_KEY__|${{ secrets.VITE_SUPABASE_KEY }}|g" index.html
+          sed -i "s|__SUPABASE_URL__|${SUPABASE_URL}|g" index.html
+          sed -i "s|__SUPABASE_KEY__|${SUPABASE_KEY}|g" index.html
 
       - name: Verify replacement
         run: |
-          grep -o "window.__SUPABASE_URL__ = '.*'" index.html || echo "NOT REPLACED"
-          grep -o "window.__SUPABASE_KEY__ = '.*'" index.html || echo "KEY NOT REPLACED"
+          grep "__SUPABASE_URL__" index.html && echo "URL NOT REPLACED" || echo "URL replaced OK"
+          grep "__SUPABASE_KEY__" index.html && echo "KEY NOT REPLACED" || echo "KEY replaced OK"
 
       - uses: actions/configure-pages@v5
 
@@ -37,4 +46,5 @@ jobs:
         with:
           path: .
 
-      - uses: actions/deploy-pages@v5
+      - id: deployment
+        uses: actions/deploy-pages@v5
