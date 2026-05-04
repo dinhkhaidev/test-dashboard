@@ -530,6 +530,10 @@ window.__SUPABASE_KEY__ = '${SUPABASE_KEY}';
                 <input class="input" type="date" id="date" required />
               </div>
               <div class="field">
+                <label for="deadline">Deadline</label>
+                <input class="input" type="datetime-local" id="deadline" />
+              </div>
+              <div class="field">
                 <label for="category">Nhãn</label>
                 <input class="input" type="text" id="category" placeholder="Ví dụ: Frontend" />
               </div>
@@ -853,6 +857,7 @@ function renderList() {
             </select>
           </span>
           <span class="tag">📅 ${formatDate(t.date)}</span>
+          ${t.deadline ? `<span class="tag">⏰ ${t.deadline}</span>` : ''}
           ${t.category ? `<span class="tag">🏷️ ${escapeHtml(t.category)}</span>` : ''}
         </div>
       </div>
@@ -985,6 +990,7 @@ async function addTask(data) {
     title: data.title.trim(),
     description: (data.description||'').trim(),
     date: data.date,
+    deadline: data.deadline || null,
     category: (data.category||'').trim(),
     priority: data.priority,
     status: 'todo',
@@ -1157,6 +1163,7 @@ $('#taskForm').addEventListener('submit', e => {
     title,
     description: $('#desc').value,
     date: $('#date').value || todayStr(),
+    deadline: $('#deadline').value || null,
     category: $('#category').value,
     priority: state.selectedPriority
   });
