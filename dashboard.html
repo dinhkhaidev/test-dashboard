@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Task Dashboard — Apple Style</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --bg-elevated: rgba(255, 255, 255, 0.72);
+    --bg-card: #ffffff;
+    --border: rgba(0, 0, 0, 0.08);
+    --border-strong: rgba(0, 0, 0, 0.12);
+    --text: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --text-tertiary: #86868b;
+    --accent: #0071e3;
+    --accent-hover: #0077ed;
+    --accent-light: rgba(0, 113, 227, 0.08);
+    --success: #34c759;
+    --warning: #ff9500;
+    --danger: #ff3b30;
+    --purple: #af52de;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.06);
+    --shadow-md: 0 4px 16px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.04);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.04);
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-xl: 28px;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000;
+      --bg-elevated: rgba(28,28,30,0.72);
+      --bg-card: #1c1c1e;
+      --border: rgba(255,255,255,.08);
+      --border-strong: rgba(255,255,255,.14);
+      --text: #f5f5f7;
+      --text-secondary: #aeaeb2;
+      --text-tertiary: #8e8e93;
+      --accent: #0a84ff;
+      --accent-hover: #409cff;
+      --accent-light: rgba(10,132,255,.14);
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em;
+    min-height: 100vh;
+  }
+  body {
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(10,132,255,.10), transparent 60%),
+      radial-gradient(1000px 500px at 100% 0%, rgba(175,82,222,.08), transparent 60%),
+      var(--bg);
+    background-attachment: fixed;
+  }
+
+  .app { max-width: 1320px; margin: 0 auto; padding: 40px 32px 80px; }
+
+  /* Top bar */
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; gap: 12px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, #0a84ff, #af52de);
+    display: grid; place-items: center;
+    color: #fff; font-weight: 700; font-size: 16px;
+    box-shadow: var(--shadow-md);
+  }
+  .brand-title { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  .brand-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 1px; }
+
+  .topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .chip-date {
+    padding: 8px 14px;
+    background: var(--bg-elevated);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 13px; color: var(--text-secondary); font-weight: 500;
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 16px;
+    background: var(--accent); color: #fff; border: none;
+    border-radius: var(--radius-md);
+    font-family: var(--font); font-size: 14px; font-weight: 600;
+    letter-spacing: -0.01em; cursor: pointer;
+    transition: all .18s ease;
+    box-shadow: 0 1px 2px rgba(0,113,227,.25);
+  }
+  .btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,113,227,.3); }
+  .btn:active { transform: translateY(0); }
+  .btn-ghost {
+    background: transparent; color: var(--text-secondary);
+    box-shadow: none; border: 1px solid var(--border-strong);
+  }
+  .btn-ghost:hover { background: var(--bg); color: var(--text); box-shadow: none; }
+  .btn-sm { padding: 7px 12px; font-size: 13px; }
+
+  /* Hero */
+  .hero { margin-bottom: 28px; }
+  .hero h1 {
+    font-size: 44px; font-weight: 700;
+    letter-spacing: -0.035em; line-height: 1.05;
+    margin-bottom: 8px;
+    background: linear-gradient(180deg, var(--text) 0%, rgba(29,29,31,.72) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero p { font-size: 18px; color: var(--text-secondary); }
+
+  /* Stats */
+  .stats {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 16px; margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+    box-shadow: var(--shadow-sm);
+    transition: transform .25s, box-shadow .25s;
+  }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .stat-label {
+    font-size: 13px; color: var(--text-secondary);
+    font-weight: 500; display: flex; align-items: center; gap: 8px;
+  }
+  .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .stat-value { font-size: 36px; font-weight: 700; letter-spacing: -0.03em; margin-top: 8px; }
+  .stat-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+  .progress-bar { margin-top: 14px; height: 6px; border-radius: 999px; background: rgba(0,0,0,.06); overflow: hidden; }
+  @media (prefers-color-scheme: dark) { .progress-bar { background: rgba(255,255,255,.08); } }
+  .progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #34c759, #30d158); transition: width .4s; }
+
+  /* Panels */
+  .panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  }
+  .panel-title { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+  .panel-subtitle { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+
+  /* Charts row */
+  .charts {
+    display: grid; grid-template-columns: 2fr 1fr 1fr;
+    gap: 20px; margin-bottom: 24px;
+  }
+  .chart-wrap { padding: 18px 22px 22px; height: 260px; position: relative; }
+  .chart-wrap canvas { max-height: 100% !important; }
+
+  /* Main */
+  .main { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; }
+  .stack { display: flex; flex-direction: column; gap: 20px; }
+
+  /* Form */
+  .form { padding: 22px 24px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 600;
+    color: var(--text-secondary); margin-bottom: 6px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .input, .select, .textarea {
+    width: 100%; padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    font-family: var(--font); font-size: 15px; color: var(--text);
+    transition: all .2s; outline: none;
+  }
+  .textarea { resize: vertical; min-height: 72px; }
+  .input:focus, .select:focus, .textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-light);
+    background: var(--bg-card);
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  /* Priority segmented */
+  .segmented {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    background: var(--bg);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    padding: 3px; gap: 3px;
+  }
+  .seg-option {
+    padding: 8px 10px; border-radius: 10px;
+    text-align: center; font-size: 13px; font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer; transition: all .18s;
+    user-select: none;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .seg-option:hover { color: var(--text); }
+  .seg-option.active {
+    background: var(--bg-card);
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
+  .prio-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* Filter tabs */
+  .filters {
+    display: flex; gap: 6px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .filter-tab {
+    padding: 7px 14px; border-radius: 999px;
+    font-size: 13px; font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer; white-space: nowrap;
+    transition: all .18s; border: 1px solid transparent;
+  }
+  .filter-tab:hover { background: var(--bg); color: var(--text); }
+  .filter-tab.active { background: var(--text); color: var(--bg-card); }
+  .filter-count { display: inline-block; margin-left: 6px; font-size: 11px; opacity: 0.7; }
+
+  /* Task list */
+  .task-list { padding: 8px; max-height: 640px; overflow-y: auto; }
+  .task-list::-webkit-scrollbar { width: 6px; }
+  .task-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+  .empty { padding: 60px 20px; text-align: center; color: var(--text-tertiary); }
+  .empty-icon { font-size: 42px; margin-bottom: 8px; }
+  .empty-title { font-size: 16px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
+
+  .task {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px; border-radius: var(--radius-md);
+    transition: background .18s; border: 1px solid transparent;
+  }
+  .task:hover { background: var(--bg); }
+  .task.done .task-title { text-decoration: line-through; color: var(--text-tertiary); }
+  .task.done { opacity: 0.75; }
+  .task-check {
+    flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid var(--border-strong); background: transparent;
+    cursor: pointer; display: grid; place-items: center;
+    transition: all .2s; margin-top: 1px;
+  }
+  .task-check:hover { border-color: var(--accent); }
+  .task.done .task-check { background: var(--success); border-color: var(--success); }
+  .task.done .task-check::after { content: "✓"; color: #fff; font-size: 13px; font-weight: 700; }
+
+  .task-body { flex: 1; min-width: 0; }
+  .task-title { font-size: 15px; font-weight: 500; line-height: 1.35; letter-spacing: -0.01em; }
+  .task-desc { font-size: 13px; color: var(--text-secondary); margin-top: 3px; line-height: 1.4; }
+  .task-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+  .tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+    background: var(--bg); color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+  .tag-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .tag.p-high { background: rgba(255,59,48,.10); color: #ff3b30; border-color: transparent; }
+  .tag.p-med  { background: rgba(255,149,0,.12); color: #b36a00; border-color: transparent; }
+  .tag.p-low  { background: rgba(52,199,89,.12); color: #1f8a3f; border-color: transparent; }
+  .tag.s-todo { background: rgba(142,142,147,.14); color: var(--text-secondary); border-color: transparent; }
+  .tag.s-doing { background: rgba(10,132,255,.12); color: #0071e3; border-color: transparent; }
+  .tag.s-done { background: rgba(52,199,89,.14); color: #1f8a3f; border-color: transparent; }
+
+  .task-actions { display: flex; gap: 4px; opacity: 0; transition: opacity .15s; flex-shrink: 0; }
+  .task:hover .task-actions { opacity: 1; }
+  .icon-btn {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: grid; place-items: center;
+    background: transparent; border: none; cursor: pointer;
+    color: var(--text-tertiary); font-size: 14px;
+    transition: all .15s;
+  }
+  .icon-btn:hover { background: var(--border); color: var(--text); }
+  .icon-btn.danger:hover { background: rgba(255,59,48,.12); color: var(--danger); }
+
+  .status-select {
+    font-size: 11px; font-weight: 600;
+    border: none; background: transparent; color: inherit;
+    cursor: pointer; padding: 0;
+    appearance: none; -webkit-appearance: none; font-family: var(--font);
+  }
+
+  /* Google Calendar section */
+  .gcal-status {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-tertiary); }
+  .status-dot.ok { background: var(--success); box-shadow: 0 0 0 3px rgba(52,199,89,.18); }
+  .status-dot.err { background: var(--danger); }
+
+  .gcal-list { padding: 8px; max-height: 340px; overflow-y: auto; }
+  .event {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 14px; border-radius: var(--radius-md);
+    transition: background .18s;
+  }
+  .event:hover { background: var(--bg); }
+  .event-time {
+    flex-shrink: 0;
+    font-size: 12px; font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-light);
+    padding: 6px 10px; border-radius: 10px;
+    min-width: 64px; text-align: center;
+  }
+  .event-body { flex: 1; min-width: 0; }
+  .event-title { font-size: 14px; font-weight: 500; letter-spacing: -0.01em; }
+  .event-loc { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+
+  /* Settings drawer */
+  .drawer-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+    display: none; z-index: 90;
+  }
+  .drawer-bg.show { display: block; }
+  .drawer {
+    position: fixed; top: 0; right: 0; height: 100vh; width: min(440px, 100vw);
+    background: var(--bg-card);
+    border-left: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    transform: translateX(100%);
+    transition: transform .28s ease;
+    z-index: 100;
+    display: flex; flex-direction: column;
+  }
+  .drawer.show { transform: translateX(0); }
+  .drawer-head {
+    padding: 20px 22px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .drawer-body { padding: 22px; overflow-y: auto; flex: 1; }
+  .drawer-body .field { margin-bottom: 14px; }
+  .help {
+    font-size: 12px; color: var(--text-tertiary); line-height: 1.55;
+    background: var(--bg); padding: 12px 14px; border-radius: var(--radius-md); border: 1px solid var(--border);
+    margin-top: 8px;
+  }
+  .help code {
+    font-size: 11px;
+    background: var(--border); padding: 1px 6px; border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  @media (max-width: 1080px) {
+    .charts { grid-template-columns: 1fr 1fr; }
+    .charts > :first-child { grid-column: 1 / -1; }
+  }
+  @media (max-width: 820px) {
+    .main { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .charts { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 34px; }
+    .app { padding: 24px 16px 60px; }
+  }
+  @media (max-width: 480px) {
+    .stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-value { font-size: 28px; }
+    .row, .row-3 { grid-template-columns: 1fr; }
+  }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .stat-card, .panel { animation: fadeUp .5s ease both; }
+  .panel:nth-child(2) { animation-delay: .05s; }
+</style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-logo">T</div>
+        <div>
+          <div class="brand-title">Task Dashboard</div>
+          <div class="brand-sub">Supabase · IndexedDB · Google Calendar</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="chip-date" id="todayChip">—</div>
+        <button class="btn btn-ghost btn-sm" id="exportBtn">⤓ Export JSON</button>
+        <button class="btn btn-ghost btn-sm" id="importBtn">⤒ Import</button>
+        <button class="btn btn-sm" id="openSettings">⚙︎ Cài đặt</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none" />
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero">
+      <h1 id="greeting">Chào buổi sáng 👋</h1>
+      <p id="heroSub">Hãy lên kế hoạch cho một ngày hiệu quả.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label"><span class="stat-dot" style="background:#0a84ff"></span>Tổng công việc</div>
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-meta" id="statTotalMeta">Chưa có task nào</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="stat-dot" style="background:#ff9500"></span>Đang làm</div>
+        <div class="stat-value" id="statDoing">0</div>
+        <div class="stat-meta">In progress</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="stat-dot" style="background:#34c759"></span>Hoàn thành hôm nay</div>
+        <div class="stat-value" id="statDone">0</div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="stat-dot" style="background:#ff3b30"></span>Ưu tiên cao</div>
+        <div class="stat-value" id="statHigh">0</div>
+        <div class="stat-meta">Cần xử lý ngay</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Tiến độ 7 ngày gần nhất</div>
+            <div class="panel-subtitle">% hoàn thành trên tổng task mỗi ngày</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chart7"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Theo trạng thái</div>
+            <div class="panel-subtitle">Toàn bộ tasks</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartStatus"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Theo ưu tiên</div>
+            <div class="panel-subtitle">Toàn bộ tasks</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartPrio"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Google Calendar row -->
+    <div class="panel" style="margin-bottom:24px">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Google Calendar — Hôm nay</div>
+          <div class="panel-subtitle" id="gcalSubtitle">Chưa kết nối</div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <div class="gcal-status"><span class="status-dot" id="gcalDot"></span><span id="gcalStatusText">Disconnected</span></div>
+          <button class="btn btn-ghost btn-sm" id="gcalRefreshBtn">↻ Làm mới</button>
+          <button class="btn btn-sm" id="gcalConnectBtn">Kết nối Google</button>
+        </div>
+      </div>
+      <div class="gcal-list" id="gcalList">
+        <div class="empty">
+          <div class="empty-icon">📅</div>
+          <div class="empty-title">Chưa kết nối Google Calendar</div>
+          <div>Mở <b>Cài đặt</b> để nhập Google API Key &amp; Client ID, sau đó bấm <b>Kết nối Google</b>.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main layout -->
+    <div class="main">
+      <!-- Left -->
+      <div class="stack">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Thêm công việc mới</div>
+              <div class="panel-subtitle">Ghi lại nhanh những việc cần làm</div>
+            </div>
+          </div>
+          <form class="form" id="taskForm" autocomplete="off">
+            <div class="field">
+              <label for="title">Tiêu đề</label>
+              <input class="input" type="text" id="title" placeholder="Ví dụ: Review PR backend..." required />
+            </div>
+            <div class="field">
+              <label for="desc">Mô tả</label>
+              <textarea class="textarea" id="desc" placeholder="Chi tiết, checklist, link..."></textarea>
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="date">Ngày</label>
+                <input class="input" type="date" id="date" required />
+              </div>
+              <div class="field">
+                <label for="category">Nhãn</label>
+                <input class="input" type="text" id="category" placeholder="Ví dụ: Frontend" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Ưu tiên</label>
+              <div class="segmented" id="priority">
+                <div class="seg-option" data-val="low"><span class="prio-dot" style="background:#34c759"></span>Thấp</div>
+                <div class="seg-option active" data-val="med"><span class="prio-dot" style="background:#ff9500"></span>Trung bình</div>
+                <div class="seg-option" data-val="high"><span class="prio-dot" style="background:#ff3b30"></span>Cao</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:4px;">
+              <button type="submit" class="btn" style="flex:1">＋ Thêm công việc</button>
+              <button type="reset" class="btn btn-ghost">Xóa</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Right -->
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Danh sách công việc</div>
+            <div class="panel-subtitle" id="listSubtitle">0 task</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="clearDone">Xóa đã xong</button>
+        </div>
+        <div class="filters" id="filters">
+          <div class="filter-tab active" data-filter="today">Hôm nay <span class="filter-count" id="cnt-today">0</span></div>
+          <div class="filter-tab" data-filter="all">Tất cả <span class="filter-count" id="cnt-all">0</span></div>
+          <div class="filter-tab" data-filter="high">Ưu tiên cao <span class="filter-count" id="cnt-high">0</span></div>
+          <div class="filter-tab" data-filter="doing">Đang làm <span class="filter-count" id="cnt-doing">0</span></div>
+          <div class="filter-tab" data-filter="todo">Chưa làm <span class="filter-count" id="cnt-todo">0</span></div>
+          <div class="filter-tab" data-filter="done">Hoàn thành <span class="filter-count" id="cnt-done">0</span></div>
+        </div>
+        <div class="task-list" id="taskList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings drawer -->
+  <div class="drawer-bg" id="drawerBg"></div>
+  <div class="drawer" id="drawer">
+    <div class="drawer-head">
+      <div>
+        <div class="panel-title">Cài đặt</div>
+        <div class="panel-subtitle">Database &amp; Google Calendar</div>
+      </div>
+      <button class="icon-btn" id="closeDrawer">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div class="field">
+        <label>Supabase URL</label>
+        <input class="input" id="cfgSupabaseUrl" placeholder="https://xxxxx.supabase.co" />
+      </div>
+      <div class="field">
+        <label>Supabase Anon Key</label>
+        <input class="input" id="cfgSupabaseKey" placeholder="eyJhbGci..." />
+      </div>
+      <div style="margin-top:10px; border-top:1px solid var(--border); padding-top:16px;">
+        <div class="field">
+          <label>Google API Key</label>
+          <input class="input" id="cfgApiKey" placeholder="AIza..." />
+        </div>
+        <div class="field">
+          <label>Google OAuth Client ID</label>
+          <input class="input" id="cfgClientId" placeholder="xxxxx.apps.googleusercontent.com" />
+        </div>
+        <div class="field">
+          <label>Calendar ID (tùy chọn)</label>
+          <input class="input" id="cfgCalendarId" placeholder="primary" />
+        </div>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn" id="saveCfg" style="flex:1">Lưu cấu hình</button>
+        <button class="btn btn-ghost" id="gcalSignOut">Ngắt kết nối</button>
+      </div>
+      <div class="help">
+        <b>Supabase setup:</b><br>
+        1. Tạo project tại <code>supabase.com</code><br>
+        2. Tạo table <code>tasks</code> với các columns: <code>id text, title text, desc text, date text, category text, priority text, status text, created_at bigint</code><br>
+        3. Bật <b>RLS</b> và tạo policy cho phép all operations<br>
+        4. Copy <b>Project URL</b> và <b>anon public</b> key vào đây<br>
+        Data sẽ đồng bộ tự động lên Supabase.
+      </div>
+      <div class="help">
+        <b>Cách tạo Google credentials:</b><br>
+        1. Vào <code>console.cloud.google.com</code> → tạo project<br>
+        2. <b>APIs &amp; Services → Library</b> → bật <code>Google Calendar API</code><br>
+        3. <b>Credentials → Create Credentials → API Key</b> → copy key<br>
+        4. <b>Create Credentials → OAuth Client ID</b> → loại <b>Web application</b><br>
+        5. Tại <b>Authorized JavaScript origins</b> thêm origin hiện tại (ví dụ <code>http://localhost:8080</code>). Mở file bằng HTTP server — <b>không</b> chạy <code>file://</code> vì OAuth không hỗ trợ.<br>
+        6. Thêm tài khoản của bạn vào <b>Test users</b> nếu app đang ở chế độ Testing.
+      </div>
+      <div style="margin-top:22px">
+        <div class="panel-title" style="font-size:15px;">Database</div>
+        <div class="help" style="margin-top:8px">
+          Data ưu tiên lưu trong <b>Supabase</b>, tự động fallback về <b>IndexedDB</b> nếu chưa cấu hình. Dùng nút <b>Export JSON</b> trên topbar để backup.
+        </div>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <button class="btn btn-ghost btn-sm" id="seedBtn">Thêm data demo</button>
+          <button class="btn btn-ghost btn-sm" id="wipeBtn" style="color:var(--danger)">Xóa toàn bộ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const CFG_KEY = 'task-dashboard-cfg';
+const cfg = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
+
+// Supabase client
+let supabase = null;
+function getSupabase() {
+  if (!cfg.supabaseUrl || !cfg.supabaseKey) return null;
+  if (!supabase) supabase = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
+  return supabase;
+}
+
+/* =========================================================================
+   DATABASE — IndexedDB wrapper (local fallback)
+   ========================================================================= */
+const DB = (() => {
+  const DB_NAME = 'taskdb';
+  const DB_VERSION = 1;
+  const STORE = 'tasks';
+  let _db = null;
+
+  async function open() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(STORE)) {
+          const s = db.createObjectStore(STORE, { keyPath: 'id' });
+          s.createIndex('date', 'date');
+          s.createIndex('status', 'status');
+          s.createIndex('priority', 'priority');
+        }
+      };
+      req.onsuccess = () => { _db = req.result; resolve(_db); };
+      req.onerror = () => reject(req.error);
+    });
+  }
+  const tx = (mode = 'readonly') => _db.transaction(STORE, mode).objectStore(STORE);
+  const wrap = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+
+  function localAll() { return wrap(tx().getAll()); }
+  function localPut(t) { return wrap(tx('readwrite').put(t)); }
+  function localDel(id) { return wrap(tx('readwrite').delete(id)); }
+  function localClear() { return wrap(tx('readwrite').clear()); }
+
+  return {
+    init: open,
+    all: async () => {
+      const sb = getSupabase();
+      if (sb) {
+        const { data, error } = await sb.from('tasks').select('*');
+        if (!error && data) return data;
+      }
+      return localAll();
+    },
+    put: async (t) => {
+      const sb = getSupabase();
+      if (sb) {
+        const { error } = await sb.from('tasks').upsert(t);
+        if (!error) return;
+      }
+      return localPut(t);
+    },
+    del: async (id) => {
+      const sb = getSupabase();
+      if (sb) {
+        const { error } = await sb.from('tasks').delete().eq('id', id);
+        if (!error) return;
+      }
+      return localDel(id);
+    },
+    clear: async () => {
+      const sb = getSupabase();
+      if (sb) {
+        const { error } = await sb.from('tasks').delete().neq('id', '__never_match__');
+        if (!error) return;
+      }
+      return localClear();
+    },
+  };
+})();
+
+/* =========================================================================
+   UTILS
+   ========================================================================= */
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const todayStr = () => new Date().toISOString().slice(0,10);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const formatDate = iso => { try { return new Date(iso).toLocaleDateString('vi-VN',{day:'2-digit',month:'short'}); } catch { return iso; } };
+
+const greet = () => {
+  const h = new Date().getHours();
+  if (h < 11) return 'Chào buổi sáng 👋';
+  if (h < 14) return 'Chào buổi trưa ☀️';
+  if (h < 18) return 'Chào buổi chiều 🌤️';
+  return 'Chào buổi tối 🌙';
+};
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+let state = {
+  tasks: [],
+  filter: 'today',
+  selectedPriority: 'med',
+  charts: { c7: null, cs: null, cp: null }
+};
+
+/* =========================================================================
+   MIGRATION from v1 localStorage
+   ========================================================================= */
+async function migrateLocalStorage() {
+  const raw = localStorage.getItem('task-dashboard-v1');
+  if (!raw) return;
+  try {
+    const items = JSON.parse(raw);
+    for (const t of items) await DB.put(t);
+    localStorage.removeItem('task-dashboard-v1');
+  } catch (e) { console.warn('Migration failed', e); }
+}
+
+/* =========================================================================
+   RENDER
+   ========================================================================= */
+async function loadTasks() {
+  state.tasks = await DB.all();
+}
+
+function renderStats() {
+  const today = todayStr();
+  const todayTasks = state.tasks.filter(t => t.date === today);
+  const total = todayTasks.length;
+  const doing = todayTasks.filter(t => t.status === 'doing').length;
+  const done = todayTasks.filter(t => t.status === 'done').length;
+  const high = todayTasks.filter(t => t.priority === 'high' && t.status !== 'done').length;
+
+  $('#statTotal').textContent = total;
+  $('#statDoing').textContent = doing;
+  $('#statDone').textContent = done;
+  $('#statHigh').textContent = high;
+  $('#statTotalMeta').textContent = total === 0 ? 'Chưa có task nào' : `${total} task hôm nay`;
+  $('#progressFill').style.width = total === 0 ? '0%' : `${Math.round(done*100/total)}%`;
+}
+
+function renderCounts() {
+  const today = todayStr();
+  const cnt = {
+    today: state.tasks.filter(t => t.date === today).length,
+    all: state.tasks.length,
+    high: state.tasks.filter(t => t.priority === 'high').length,
+    doing: state.tasks.filter(t => t.status === 'doing').length,
+    todo: state.tasks.filter(t => t.status === 'todo').length,
+    done: state.tasks.filter(t => t.status === 'done').length,
+  };
+  for (const k in cnt) {
+    const el = document.getElementById('cnt-' + k);
+    if (el) el.textContent = cnt[k];
+  }
+}
+
+function getFiltered() {
+  const t = todayStr();
+  switch (state.filter) {
+    case 'today': return state.tasks.filter(x => x.date === t);
+    case 'high':  return state.tasks.filter(x => x.priority === 'high');
+    case 'doing': return state.tasks.filter(x => x.status === 'doing');
+    case 'todo':  return state.tasks.filter(x => x.status === 'todo');
+    case 'done':  return state.tasks.filter(x => x.status === 'done');
+    default:      return state.tasks.slice();
+  }
+}
+
+const PRIO_ORDER = { high: 0, med: 1, low: 2 };
+const STATUS_ORDER = { doing: 0, todo: 1, done: 2 };
+
+function renderList() {
+  const list = $('#taskList');
+  const items = getFiltered().sort((a,b) => {
+    if (STATUS_ORDER[a.status] !== STATUS_ORDER[b.status]) return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+    if (PRIO_ORDER[a.priority] !== PRIO_ORDER[b.priority]) return PRIO_ORDER[a.priority] - PRIO_ORDER[b.priority];
+    return (b.createdAt||0) - (a.createdAt||0);
+  });
+
+  $('#listSubtitle').textContent = `${items.length} task`;
+
+  if (items.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">✨</div><div class="empty-title">Không có công việc</div><div>Hãy thêm task mới ở bên trái để bắt đầu.</div></div>`;
+    return;
+  }
+
+  list.innerHTML = items.map(t => {
+    const prioLabel = { high:'Cao', med:'T.Bình', low:'Thấp' }[t.priority];
+    const prioClass = { high:'p-high', med:'p-med', low:'p-low' }[t.priority];
+    const statusClass = { todo:'s-todo', doing:'s-doing', done:'s-done' }[t.status];
+    return `
+    <div class="task ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}">
+      <button class="task-check" data-act="toggle" title="Đánh dấu hoàn thành"></button>
+      <div class="task-body">
+        <div class="task-title">${escapeHtml(t.title)}</div>
+        ${t.desc ? `<div class="task-desc">${escapeHtml(t.desc)}</div>` : ''}
+        <div class="task-meta">
+          <span class="tag ${prioClass}"><span class="tag-dot" style="background:currentColor"></span>${prioLabel}</span>
+          <span class="tag ${statusClass}">
+            <select class="status-select" data-act="status">
+              <option value="todo" ${t.status==='todo'?'selected':''}>Chưa làm</option>
+              <option value="doing" ${t.status==='doing'?'selected':''}>Đang làm</option>
+              <option value="done" ${t.status==='done'?'selected':''}>Hoàn thành</option>
+            </select>
+          </span>
+          <span class="tag">📅 ${formatDate(t.date)}</span>
+          ${t.category ? `<span class="tag">🏷️ ${escapeHtml(t.category)}</span>` : ''}
+        </div>
+      </div>
+      <div class="task-actions">
+        <button class="icon-btn danger" data-act="delete" title="Xóa">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* =========================================================================
+   CHARTS
+   ========================================================================= */
+function chartColors() {
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  return {
+    text: dark ? '#aeaeb2' : '#6e6e73',
+    grid: dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)',
+    bar: dark ? '#0a84ff' : '#0071e3',
+    barBg: dark ? 'rgba(10,132,255,.2)' : 'rgba(0,113,227,.15)',
+  };
+}
+
+function last7Days() {
+  const res = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    res.push(d.toISOString().slice(0,10));
+  }
+  return res;
+}
+
+function renderCharts() {
+  const col = chartColors();
+  const days = last7Days();
+  const labels = days.map(d => new Date(d).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit' }));
+  const data7 = days.map(d => {
+    const ts = state.tasks.filter(t => t.date === d);
+    if (!ts.length) return 0;
+    return Math.round(ts.filter(t => t.status === 'done').length * 100 / ts.length);
+  });
+
+  // 7-day bar
+  if (state.charts.c7) state.charts.c7.destroy();
+  state.charts.c7 = new Chart($('#chart7'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '% hoàn thành',
+        data: data7,
+        backgroundColor: col.bar,
+        borderRadius: 8,
+        barThickness: 28,
+        maxBarThickness: 36
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ctx.parsed.y + '%' } }
+      },
+      scales: {
+        y: { beginAtZero: true, max: 100, ticks: { color: col.text, callback: v => v + '%' }, grid: { color: col.grid } },
+        x: { ticks: { color: col.text }, grid: { display: false } }
+      }
+    }
+  });
+
+  // Status
+  const statusCount = { todo: 0, doing: 0, done: 0 };
+  state.tasks.forEach(t => statusCount[t.status]++);
+  if (state.charts.cs) state.charts.cs.destroy();
+  state.charts.cs = new Chart($('#chartStatus'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Chưa làm', 'Đang làm', 'Hoàn thành'],
+      datasets: [{
+        data: [statusCount.todo, statusCount.doing, statusCount.done],
+        backgroundColor: ['#8e8e93', '#0a84ff', '#34c759'],
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { position: 'bottom', labels: { color: col.text, boxWidth: 10, padding: 12 } } }
+    }
+  });
+
+  // Priority
+  const prioCount = { high: 0, med: 0, low: 0 };
+  state.tasks.forEach(t => prioCount[t.priority]++);
+  if (state.charts.cp) state.charts.cp.destroy();
+  state.charts.cp = new Chart($('#chartPrio'), {
+    type: 'bar',
+    data: {
+      labels: ['Cao', 'Trung bình', 'Thấp'],
+      datasets: [{
+        data: [prioCount.high, prioCount.med, prioCount.low],
+        backgroundColor: ['#ff3b30', '#ff9500', '#34c759'],
+        borderRadius: 8, barThickness: 36
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { color: col.text, precision: 0 }, grid: { color: col.grid } },
+        x: { ticks: { color: col.text }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+async function render() {
+  await loadTasks();
+  renderStats();
+  renderCounts();
+  renderList();
+  renderCharts();
+}
+
+/* =========================================================================
+   CRUD
+   ========================================================================= */
+async function addTask(data) {
+  const t = {
+    id: uid(),
+    title: data.title.trim(),
+    desc: (data.desc||'').trim(),
+    date: data.date,
+    category: (data.category||'').trim(),
+    priority: data.priority,
+    status: 'todo',
+    createdAt: Date.now()
+  };
+  await DB.put(t);
+  await render();
+}
+async function updateTask(id, patch) {
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return;
+  Object.assign(t, patch);
+  await DB.put(t);
+  await render();
+}
+async function deleteTask(id) {
+  await DB.del(id);
+  await render();
+}
+
+/* =========================================================================
+   GOOGLE CALENDAR
+   ========================================================================= */
+const GCAL = {
+  gapiReady: false,
+  gisReady: false,
+  tokenClient: null,
+  signedIn: false,
+
+  setStatus(text, kind) {
+    $('#gcalStatusText').textContent = text;
+    const d = $('#gcalDot'); d.classList.remove('ok','err');
+    if (kind) d.classList.add(kind);
+    $('#gcalSubtitle').textContent = text;
+  },
+
+  async initGapi() {
+    if (!cfg.apiKey) return;
+    await new Promise(r => gapi.load('client', r));
+    await gapi.client.init({
+      apiKey: cfg.apiKey,
+      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
+    });
+    this.gapiReady = true;
+  },
+
+  initGis() {
+    if (!window.google || !cfg.clientId) return;
+    this.tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: cfg.clientId,
+      scope: 'https://www.googleapis.com/auth/calendar.readonly',
+      callback: (resp) => {
+        if (resp.error) {
+          this.setStatus('Lỗi OAuth: ' + resp.error, 'err');
+          return;
+        }
+        this.signedIn = true;
+        this.setStatus('Đã kết nối', 'ok');
+        this.loadToday();
+      }
+    });
+    this.gisReady = true;
+  },
+
+  async connect() {
+    if (!cfg.apiKey || !cfg.clientId) {
+      alert('Vui lòng nhập API Key và OAuth Client ID trong Cài đặt.');
+      openDrawer(); return;
+    }
+    try {
+      if (!this.gapiReady) await this.initGapi();
+      if (!this.gisReady) this.initGis();
+      if (!this.tokenClient) { this.setStatus('GIS chưa sẵn sàng', 'err'); return; }
+      this.tokenClient.requestAccessToken({ prompt: 'consent' });
+    } catch (e) {
+      console.error(e); this.setStatus('Lỗi kết nối', 'err');
+    }
+  },
+
+  signOut() {
+    const token = gapi?.client?.getToken?.();
+    if (token) {
+      google.accounts.oauth2.revoke(token.access_token, () => {});
+      gapi.client.setToken(null);
+    }
+    this.signedIn = false;
+    this.setStatus('Đã ngắt kết nối');
+    $('#gcalList').innerHTML = `<div class="empty"><div class="empty-icon">📅</div><div class="empty-title">Chưa kết nối</div></div>`;
+  },
+
+  async loadToday() {
+    if (!this.gapiReady || !this.signedIn) return;
+    const start = new Date(); start.setHours(0,0,0,0);
+    const end = new Date(); end.setHours(23,59,59,999);
+    try {
+      const res = await gapi.client.calendar.events.list({
+        calendarId: cfg.calendarId || 'primary',
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+        showDeleted: false,
+        singleEvents: true,
+        orderBy: 'startTime',
+      });
+      this.renderEvents(res.result.items || []);
+    } catch (e) {
+      console.error(e); this.setStatus('Lỗi tải events', 'err');
+    }
+  },
+
+  renderEvents(items) {
+    const el = $('#gcalList');
+    if (!items.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">🎉</div><div class="empty-title">Không có sự kiện hôm nay</div><div>Ngày hôm nay trống, tập trung làm tasks thôi!</div></div>`;
+      return;
+    }
+    el.innerHTML = items.map(ev => {
+      const s = ev.start.dateTime ? new Date(ev.start.dateTime) : null;
+      const e = ev.end.dateTime ? new Date(ev.end.dateTime) : null;
+      const time = s ? s.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' }) : 'All day';
+      return `
+        <div class="event">
+          <div class="event-time">${time}</div>
+          <div class="event-body">
+            <div class="event-title">${escapeHtml(ev.summary || '(Không tiêu đề)')}</div>
+            ${ev.location ? `<div class="event-loc">📍 ${escapeHtml(ev.location)}</div>` : ''}
+            ${e && s ? `<div class="event-loc">⏱ ${s.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} — ${e.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})}</div>` : ''}
+          </div>
+          <button class="btn btn-ghost btn-sm" data-ev="${escapeHtml(ev.summary || '')}">＋ Task</button>
+        </div>`;
+    }).join('');
+
+    el.querySelectorAll('button[data-ev]').forEach(b => {
+      b.addEventListener('click', () => {
+        addTask({ title: b.dataset.ev, desc: '', date: todayStr(), category: 'Meeting', priority: 'med' });
+      });
+    });
+  }
+};
+
+/* =========================================================================
+   UI EVENTS
+   ========================================================================= */
+function openDrawer() {
+  $('#cfgSupabaseUrl').value = cfg.supabaseUrl || '';
+  $('#cfgSupabaseKey').value = cfg.supabaseKey || '';
+  $('#cfgApiKey').value = cfg.apiKey || '';
+  $('#cfgClientId').value = cfg.clientId || '';
+  $('#cfgCalendarId').value = cfg.calendarId || '';
+  $('#drawer').classList.add('show');
+  $('#drawerBg').classList.add('show');
+}
+function closeDrawer() {
+  $('#drawer').classList.remove('show');
+  $('#drawerBg').classList.remove('show');
+}
+
+// Priority segmented
+$('#priority').addEventListener('click', e => {
+  const opt = e.target.closest('.seg-option'); if (!opt) return;
+  $$('#priority .seg-option').forEach(o => o.classList.remove('active'));
+  opt.classList.add('active');
+  state.selectedPriority = opt.dataset.val;
+});
+
+// Form
+$('#taskForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const title = $('#title').value.trim(); if (!title) return;
+  addTask({
+    title,
+    desc: $('#desc').value,
+    date: $('#date').value || todayStr(),
+    category: $('#category').value,
+    priority: state.selectedPriority
+  });
+  e.target.reset();
+  $('#date').value = todayStr();
+  $$('#priority .seg-option').forEach(o => o.classList.toggle('active', o.dataset.val === 'med'));
+  state.selectedPriority = 'med';
+  $('#title').focus();
+});
+
+// Filters
+$('#filters').addEventListener('click', e => {
+  const tab = e.target.closest('.filter-tab'); if (!tab) return;
+  $$('#filters .filter-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  state.filter = tab.dataset.filter;
+  renderList();
+});
+
+// Task actions
+$('#taskList').addEventListener('click', e => {
+  const taskEl = e.target.closest('.task'); if (!taskEl) return;
+  const id = taskEl.dataset.id;
+  const act = e.target.dataset.act;
+  if (act === 'toggle') {
+    const t = state.tasks.find(x => x.id === id);
+    updateTask(id, { status: t.status === 'done' ? 'todo' : 'done' });
+  } else if (act === 'delete') {
+    if (confirm('Xóa công việc này?')) deleteTask(id);
+  }
+});
+$('#taskList').addEventListener('change', e => {
+  if (e.target.dataset.act === 'status') {
+    const taskEl = e.target.closest('.task');
+    updateTask(taskEl.dataset.id, { status: e.target.value });
+  }
+});
+
+$('#clearDone').addEventListener('click', async () => {
+  const doneTasks = state.tasks.filter(t => t.status === 'done');
+  if (!doneTasks.length) return;
+  if (!confirm(`Xóa ${doneTasks.length} task đã hoàn thành?`)) return;
+  for (const t of doneTasks) await DB.del(t.id);
+  await render();
+});
+
+// Topbar actions
+$('#openSettings').addEventListener('click', openDrawer);
+$('#closeDrawer').addEventListener('click', closeDrawer);
+$('#drawerBg').addEventListener('click', closeDrawer);
+
+$('#saveCfg').addEventListener('click', async () => {
+  cfg.supabaseUrl = $('#cfgSupabaseUrl').value.trim();
+  cfg.supabaseKey = $('#cfgSupabaseKey').value.trim();
+  cfg.apiKey = $('#cfgApiKey').value.trim();
+  cfg.clientId = $('#cfgClientId').value.trim();
+  cfg.calendarId = $('#cfgCalendarId').value.trim();
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  supabase = null; // reset client
+  closeDrawer();
+  // re-init
+  GCAL.gapiReady = false; GCAL.gisReady = false;
+  try { await GCAL.initGapi(); GCAL.initGis(); } catch(e) { console.warn(e); }
+  await render();
+  alert('Đã lưu cấu hình Supabase.');
+});
+
+$('#gcalConnectBtn').addEventListener('click', () => GCAL.connect());
+$('#gcalRefreshBtn').addEventListener('click', () => GCAL.loadToday());
+$('#gcalSignOut').addEventListener('click', () => GCAL.signOut());
+
+// Export / Import / Seed / Wipe
+$('#exportBtn').addEventListener('click', async () => {
+  const data = JSON.stringify(state.tasks, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `tasks-${todayStr()}.json`;
+  a.click();
+});
+$('#importBtn').addEventListener('click', () => $('#importFile').click());
+$('#importFile').addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const text = await file.text();
+    const items = JSON.parse(text);
+    if (!Array.isArray(items)) throw new Error('Invalid format');
+    for (const t of items) if (t.id) await DB.put(t);
+    await render();
+    alert(`Đã import ${items.length} task.`);
+  } catch (err) { alert('File không hợp lệ: ' + err.message); }
+  e.target.value = '';
+});
+
+$('#seedBtn').addEventListener('click', async () => {
+  const demos = [
+    { title:'Review PR module thanh toán', desc:'Check logic retry + unit test', date: todayStr(), category:'Backend', priority:'high', status:'doing' },
+    { title:'Build dashboard UI cho team', desc:'Apple style, responsive', date: todayStr(), category:'Frontend', priority:'high', status:'todo' },
+    { title:'Chuẩn bị slide demo Friday', date: todayStr(), category:'Meeting', priority:'med', status:'todo' },
+    { title:'Đọc tài liệu Rust async', date: todayStr(), category:'Learning', priority:'low', status:'done' }
+  ];
+  for (const d of demos) await DB.put({ id: uid(), desc:'', category:'', createdAt: Date.now(), ...d });
+  await render();
+});
+
+$('#wipeBtn').addEventListener('click', async () => {
+  if (!confirm('Xóa TOÀN BỘ tasks? Không thể khôi phục.')) return;
+  await DB.clear(); await render();
+});
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+(async function init() {
+  await DB.init();
+  await migrateLocalStorage();
+  $('#date').value = todayStr();
+  $('#greeting').textContent = greet();
+  $('#todayChip').textContent = new Date().toLocaleDateString('vi-VN', {
+    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
+  });
+
+  await render();
+
+  // Seed demo if empty
+  if (state.tasks.length === 0) {
+    $('#seedBtn').click();
+  }
+
+  // Init Google libraries if config exists
+  if (cfg.apiKey && cfg.clientId) {
+    const waitGapi = setInterval(async () => {
+      if (typeof gapi !== 'undefined') {
+        clearInterval(waitGapi);
+        try { await GCAL.initGapi(); } catch(e){ console.warn(e); }
+      }
+    }, 200);
+    const waitGis = setInterval(() => {
+      if (window.google && google.accounts) {
+        clearInterval(waitGis);
+        GCAL.initGis();
+      }
+    }, 200);
+  }
+
+  // Re-render charts on theme change
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderCharts);
+})();
+</script>
+<!--
+====================================================================
+  SUPABASE TABLE SETUP (nếu chưa tạo)
+====================================================================
+Chạy SQL này trong Supabase SQL Editor:
+
+create table tasks (
+  id text primary key,
+  title text not null,
+  desc text default '',
+  date text not null,
+  category text default '',
+  priority text default 'med',
+  status text default 'todo',
+  created_at bigint
+);
+
+-- Bật RLS (Row Level Security)
+alter table tasks enable row level security;
+
+-- Policy cho phép tất cả operations (thay đổi theo nhu cầu)
+create policy "allow_all" on tasks for all using (true) with check (true);
+
+====================================================================
+  GOOGLE CALENDAR 2-way sync (tùy chọn)
+====================================================================
+- Đổi scope thành https://www.googleapis.com/auth/calendar
+- Khi addTask: gapi.client.calendar.events.insert({calendarId:'primary', resource:{summary,...}})
+- Lưu eventId vào task để update/delete sau.
+-->
+</body>
+</html>
