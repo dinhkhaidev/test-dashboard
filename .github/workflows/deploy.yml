@@ -13,19 +13,8 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
-
-      - name: Set env vars
-        env:
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.VITE_SUPABASE_KEY }}
-        run: |
-          echo "SUPABASE_URL_LEN=${#SUPABASE_URL}"
-          echo "SUPABASE_KEY_LEN=${#SUPABASE_KEY}"
 
       - name: Replace placeholders
         env:
@@ -37,8 +26,8 @@ jobs:
 
       - name: Verify replacement
         run: |
-          grep "__SUPABASE_URL__" index.html && echo "URL NOT REPLACED" || echo "URL replaced OK"
-          grep "__SUPABASE_KEY__" index.html && echo "KEY NOT REPLACED" || echo "KEY replaced OK"
+          grep "__SUPABASE_URL__" index.html && echo "URL NOT REPLACED" || echo "URL OK"
+          grep "__SUPABASE_KEY__" index.html && echo "KEY NOT REPLACED" || echo "KEY OK"
 
       - uses: actions/configure-pages@v5
 
