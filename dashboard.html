@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Task Dashboard — Apple Style</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://apis.google.com/js/api.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -405,7 +404,7 @@
         <div class="brand-logo">T</div>
         <div>
           <div class="brand-title">Task Dashboard</div>
-          <div class="brand-sub">Supabase · IndexedDB · Google Calendar</div>
+          <div class="brand-sub">IndexedDB · Google Calendar · Charts</div>
         </div>
       </div>
       <div class="topbar-right">
@@ -580,52 +579,34 @@
     </div>
     <div class="drawer-body">
       <div class="field">
-        <label>Supabase URL</label>
-        <input class="input" id="cfgSupabaseUrl" placeholder="https://xxxxx.supabase.co" />
+        <label>Google API Key</label>
+        <input class="input" id="cfgApiKey" placeholder="AIza..." />
       </div>
       <div class="field">
-        <label>Supabase Anon Key</label>
-        <input class="input" id="cfgSupabaseKey" placeholder="eyJhbGci..." />
+        <label>Google OAuth Client ID</label>
+        <input class="input" id="cfgClientId" placeholder="xxxxx.apps.googleusercontent.com" />
       </div>
-      <div style="margin-top:10px; border-top:1px solid var(--border); padding-top:16px;">
-        <div class="field">
-          <label>Google API Key</label>
-          <input class="input" id="cfgApiKey" placeholder="AIza..." />
-        </div>
-        <div class="field">
-          <label>Google OAuth Client ID</label>
-          <input class="input" id="cfgClientId" placeholder="xxxxx.apps.googleusercontent.com" />
-        </div>
-        <div class="field">
-          <label>Calendar ID (tùy chọn)</label>
-          <input class="input" id="cfgCalendarId" placeholder="primary" />
-        </div>
+      <div class="field">
+        <label>Calendar ID (tùy chọn)</label>
+        <input class="input" id="cfgCalendarId" placeholder="primary" />
       </div>
       <div style="display:flex; gap:10px;">
         <button class="btn" id="saveCfg" style="flex:1">Lưu cấu hình</button>
         <button class="btn btn-ghost" id="gcalSignOut">Ngắt kết nối</button>
       </div>
       <div class="help">
-        <b>Supabase setup:</b><br>
-        1. Tạo project tại <code>supabase.com</code><br>
-        2. Tạo table <code>tasks</code> với các columns: <code>id text, title text, desc text, date text, category text, priority text, status text, created_at bigint</code><br>
-        3. Bật <b>RLS</b> và tạo policy cho phép all operations<br>
-        4. Copy <b>Project URL</b> và <b>anon public</b> key vào đây<br>
-        Data sẽ đồng bộ tự động lên Supabase.
-      </div>
-      <div class="help">
-        <b>Cách tạo Google credentials:</b><br>
+        <b>Cách tạo credentials:</b><br>
         1. Vào <code>console.cloud.google.com</code> → tạo project<br>
         2. <b>APIs &amp; Services → Library</b> → bật <code>Google Calendar API</code><br>
         3. <b>Credentials → Create Credentials → API Key</b> → copy key<br>
         4. <b>Create Credentials → OAuth Client ID</b> → loại <b>Web application</b><br>
-        5. Tại <b>Authorized JavaScript origins</b> thêm origin hiện tại (ví dụ <code>http://localhost:8080</code>). Mở file bằng HTTP server — <b>không</b> chạy <code>file://</code> vì OAuth không hỗ trợ.<br>
+        5. Tại <b>Authorized JavaScript origins</b> thêm origin hiện tại của file này (ví dụ <code>http://localhost:8080</code> hoặc <code>http://127.0.0.1:5500</code>). Mở file bằng HTTP server — <b>không</b> chạy <code>file://</code> vì OAuth không hỗ trợ.<br>
         6. Thêm tài khoản của bạn vào <b>Test users</b> nếu app đang ở chế độ Testing.
       </div>
       <div style="margin-top:22px">
         <div class="panel-title" style="font-size:15px;">Database</div>
         <div class="help" style="margin-top:8px">
-          Data ưu tiên lưu trong <b>Supabase</b>, tự động fallback về <b>IndexedDB</b> nếu chưa cấu hình. Dùng nút <b>Export JSON</b> trên topbar để backup.
+          Data lưu trong <b>IndexedDB</b> của trình duyệt (database <code>taskdb</code>, store <code>tasks</code>) — dữ liệu được giữ sau khi refresh và có quota lớn hơn localStorage nhiều. Dùng nút <b>Export JSON</b> trên topbar để backup. Muốn đồng bộ nhiều thiết bị, xem <i>Upgrade cloud sync</i> ở cuối file (Supabase/Firebase).
         </div>
         <div style="display:flex; gap:10px; margin-top:10px;">
           <button class="btn btn-ghost btn-sm" id="seedBtn">Thêm data demo</button>
@@ -636,19 +617,8 @@
   </div>
 
 <script>
-const CFG_KEY = 'task-dashboard-cfg';
-const cfg = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
-
-// Supabase client
-let supabase = null;
-function getSupabase() {
-  if (!cfg.supabaseUrl || !cfg.supabaseKey) return null;
-  if (!supabase) supabase = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
-  return supabase;
-}
-
 /* =========================================================================
-   DATABASE — IndexedDB wrapper (local fallback)
+   DATABASE — IndexedDB wrapper
    ========================================================================= */
 const DB = (() => {
   const DB_NAME = 'taskdb';
@@ -656,7 +626,7 @@ const DB = (() => {
   const STORE = 'tasks';
   let _db = null;
 
-  async function open() {
+  function open() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = () => {
@@ -675,45 +645,12 @@ const DB = (() => {
   const tx = (mode = 'readonly') => _db.transaction(STORE, mode).objectStore(STORE);
   const wrap = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 
-  function localAll() { return wrap(tx().getAll()); }
-  function localPut(t) { return wrap(tx('readwrite').put(t)); }
-  function localDel(id) { return wrap(tx('readwrite').delete(id)); }
-  function localClear() { return wrap(tx('readwrite').clear()); }
-
   return {
     init: open,
-    all: async () => {
-      const sb = getSupabase();
-      if (sb) {
-        const { data, error } = await sb.from('tasks').select('*');
-        if (!error && data) return data;
-      }
-      return localAll();
-    },
-    put: async (t) => {
-      const sb = getSupabase();
-      if (sb) {
-        const { error } = await sb.from('tasks').upsert(t);
-        if (!error) return;
-      }
-      return localPut(t);
-    },
-    del: async (id) => {
-      const sb = getSupabase();
-      if (sb) {
-        const { error } = await sb.from('tasks').delete().eq('id', id);
-        if (!error) return;
-      }
-      return localDel(id);
-    },
-    clear: async () => {
-      const sb = getSupabase();
-      if (sb) {
-        const { error } = await sb.from('tasks').delete().neq('id', '__never_match__');
-        if (!error) return;
-      }
-      return localClear();
-    },
+    all: () => wrap(tx().getAll()),
+    put: (t) => wrap(tx('readwrite').put(t)),
+    del: (id) => wrap(tx('readwrite').delete(id)),
+    clear: () => wrap(tx('readwrite').clear()),
   };
 })();
 
@@ -744,6 +681,9 @@ let state = {
   selectedPriority: 'med',
   charts: { c7: null, cs: null, cp: null }
 };
+
+const CFG_KEY = 'task-dashboard-cfg';
+const cfg = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
 
 /* =========================================================================
    MIGRATION from v1 localStorage
@@ -1122,8 +1062,6 @@ const GCAL = {
    UI EVENTS
    ========================================================================= */
 function openDrawer() {
-  $('#cfgSupabaseUrl').value = cfg.supabaseUrl || '';
-  $('#cfgSupabaseKey').value = cfg.supabaseKey || '';
   $('#cfgApiKey').value = cfg.apiKey || '';
   $('#cfgClientId').value = cfg.clientId || '';
   $('#cfgCalendarId').value = cfg.calendarId || '';
@@ -1203,19 +1141,15 @@ $('#closeDrawer').addEventListener('click', closeDrawer);
 $('#drawerBg').addEventListener('click', closeDrawer);
 
 $('#saveCfg').addEventListener('click', async () => {
-  cfg.supabaseUrl = $('#cfgSupabaseUrl').value.trim();
-  cfg.supabaseKey = $('#cfgSupabaseKey').value.trim();
   cfg.apiKey = $('#cfgApiKey').value.trim();
   cfg.clientId = $('#cfgClientId').value.trim();
   cfg.calendarId = $('#cfgCalendarId').value.trim();
   localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
-  supabase = null; // reset client
   closeDrawer();
   // re-init
   GCAL.gapiReady = false; GCAL.gisReady = false;
   try { await GCAL.initGapi(); GCAL.initGis(); } catch(e) { console.warn(e); }
-  await render();
-  alert('Đã lưu cấu hình Supabase.');
+  alert('Đã lưu cấu hình. Bấm "Kết nối Google" để xác thực.');
 });
 
 $('#gcalConnectBtn').addEventListener('click', () => GCAL.connect());
@@ -1302,30 +1236,37 @@ $('#wipeBtn').addEventListener('click', async () => {
 </script>
 <!--
 ====================================================================
-  SUPABASE TABLE SETUP (nếu chưa tạo)
+  CLOUD SYNC — UPGRADE PATH (ghi chú)
 ====================================================================
-Chạy SQL này trong Supabase SQL Editor:
+IndexedDB hiện tại là DB local trên trình duyệt. Muốn sync multi-device:
 
-create table tasks (
-  id text primary key,
-  title text not null,
-  desc text default '',
-  date text not null,
-  category text default '',
-  priority text default 'med',
-  status text default 'todo',
-  created_at bigint
-);
+OPTION A — Supabase (khuyên dùng, free tier, Postgres):
+  1. Tạo project tại supabase.com
+  2. Table SQL:
+     create table tasks (
+       id text primary key, title text, desc text, date date,
+       category text, priority text, status text, created_at bigint,
+       user_id uuid references auth.users
+     );
+     alter table tasks enable row level security;
+     create policy "own tasks" on tasks using (auth.uid() = user_id);
+  3. Thay DB object bằng supabase-js client:
+     import { createClient } from '@supabase/supabase-js'
+     const sb = createClient(URL, ANON_KEY)
+     // DB.all = () => sb.from('tasks').select().then(r=>r.data)
+     // DB.put = t  => sb.from('tasks').upsert(t)
+     // DB.del = id => sb.from('tasks').delete().eq('id', id)
 
--- Bật RLS (Row Level Security)
-alter table tasks enable row level security;
+OPTION B — Firebase Firestore:
+  import { initializeApp } from 'firebase/app'
+  import { getFirestore, collection, setDoc, deleteDoc, getDocs, doc }
+  // mapping tương tự
 
--- Policy cho phép tất cả operations (thay đổi theo nhu cầu)
-create policy "allow_all" on tasks for all using (true) with check (true);
+OPTION C — Self-host (Node + Express + SQLite):
+  POST /tasks, GET /tasks, DELETE /tasks/:id
+  Chỉ cần thay DB wrapper thành fetch() calls.
 
-====================================================================
-  GOOGLE CALENDAR 2-way sync (tùy chọn)
-====================================================================
+=== Google Calendar 2-way sync (tùy chọn): ===
 - Đổi scope thành https://www.googleapis.com/auth/calendar
 - Khi addTask: gapi.client.calendar.events.insert({calendarId:'primary', resource:{summary,...}})
 - Lưu eventId vào task để update/delete sau.

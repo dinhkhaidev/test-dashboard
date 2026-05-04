@@ -644,13 +644,13 @@ const CFG_KEY = 'task-dashboard-cfg';
 const cfg = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
 
 // Supabase client
-let supabase = null;
+let _sbClient = null;
 function getSupabase() {
   const url = cfg.supabaseUrl || window.__SUPABASE_URL__;
   const key = cfg.supabaseKey || window.__SUPABASE_KEY__;
   if (!url || !key) return null;
-  if (!supabase) supabase = window.supabase.createClient(url, key);
-  return supabase;
+  if (!_sbClient) _sbClient = window.supabase.createClient(url, key);
+  return _sbClient;
 }
 
 /* =========================================================================
