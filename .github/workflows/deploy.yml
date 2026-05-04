@@ -23,8 +23,8 @@ jobs:
 
       - name: Replace placeholders
         run: |
-          sed -i 's|__SUPABASE_URL__|${{ secrets.VITE_SUPABASE_URL }}|g' index.html
-          sed -i 's|__SUPABASE_KEY__|${{ secrets.VITE_SUPABASE_KEY }}|g' index.html
+          sed -i "s|__SUPABASE_URL__|${{ secrets.VITE_SUPABASE_URL }}|g" index.html
+          sed -i "s|__SUPABASE_KEY__|${{ secrets.VITE_SUPABASE_KEY }}|g" index.html
 
       - name: Verify replacement
         run: |
