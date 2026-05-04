@@ -17,8 +17,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - run: |
-          sed -i 's|__SUPABASE_URL__|${{ vars.VITE_SUPABASE_URL }}|g' index.html
-          sed -i 's|__SUPABASE_KEY__|${{ vars.VITE_SUPABASE_KEY }}|g' index.html
+          sed -i 's|__SUPABASE_URL__|${{ secrets.VITE_SUPABASE_URL }}|g' index.html
+          sed -i 's|__SUPABASE_KEY__|${{ secrets.VITE_SUPABASE_KEY }}|g' index.html
 
       - uses: actions/configure-pages@v4
 
